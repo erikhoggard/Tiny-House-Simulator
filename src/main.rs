@@ -1,7 +1,5 @@
-use rltk::{GameState, Rltk, Tile, VirtualKeyCode, RGB};
+use rltk::{GameState, Rltk, RGB};
 use specs::prelude::*;
-use specs_derive::Component;
-use std::cmp::{max, min};
 
 mod components;
 pub use components::*;
@@ -9,35 +7,15 @@ mod map;
 pub use map::*;
 mod player;
 pub use player::*;
-
-#[derive(Component)]
-struct LeftMover {}
-
-struct LeftWalker {}
-
-impl<'a> System<'a> for LeftWalker {
-    type SystemData = (ReadStorage<'a, LeftMover>, WriteStorage<'a, Position>);
-
-    fn run(&mut self, (lefty, mut pos): Self::SystemData) {
-        for (_lefty, pos) in (&lefty, &mut pos).join() {
-            pos.x -= 1;
-            if pos.x < 0 {
-                pos.x = 79;
-            }
-        }
-    }
-}
+mod rect;
+pub use rect::Rect;
 
 pub struct State {
     ecs: World,
 }
 
 impl State {
-    fn run_systems(&mut self) {
-        let mut lw = LeftWalker {};
-        lw.run_now(&self.ecs);
-        self.ecs.maintain();
-    }
+    fn run_systems(&mut self) {}
 }
 
 impl GameState for State {
@@ -70,14 +48,18 @@ fn main() -> rltk::BError {
     gs.ecs.register::<Position>();
     gs.ecs.register::<Renderable>();
     gs.ecs.register::<Player>();
-    gs.ecs.register::<LeftMover>();
 
-    gs.ecs.insert(new_map());
+    let (rooms, map) = new_map_rooms_and_corridors();
+    gs.ecs.insert(map);
+    let (player_x, player_y) = rooms[0].center();
 
     // The Player entity
     gs.ecs
         .create_entity()
-        .with(Position { x: 40, y: 25 })
+        .with(Position {
+            x: player_x,
+            y: player_y,
+        })
         .with(Renderable {
             glyph: rltk::to_cp437('@'),
             fg: RGB::named(rltk::YELLOW),
