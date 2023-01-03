@@ -56,6 +56,7 @@ pub struct SufferDamage {
 
 impl SufferDamage {
     pub fn new_damage(store: &mut WriteStorage<SufferDamage>, victim: Entity, amount: i32) {
+        // we need the store param to get the mutable version of victim
         if let Some(suffering) = store.get_mut(victim) {
             // if the victim has a SufferDamage vec already, add to it
             suffering.amount.push(amount);

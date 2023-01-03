@@ -3,6 +3,10 @@ use rltk::{Algorithm2D, BaseMap, Point, RandomNumberGenerator, Rltk, Tile, RGB};
 use specs::prelude::*;
 use std::cmp::{max, min};
 
+const MAP_WIDTH: usize = 80;
+const MAP_HEIGHT: usize = 43;
+const MAP_COUNT: usize = MAP_HEIGHT * MAP_WIDTH;
+
 // PartialEq allows == to check type equivalence; tile_type == TileType::Wall
 // Copy changes the default assignment behavior; tile1=tile2 leaves both values valid
 #[derive(PartialEq, Copy, Clone)]
@@ -195,11 +199,11 @@ pub fn draw_map(ecs: &World, ctx: &mut Rltk) {
             match tile {
                 TileType::Floor => {
                     glyph = rltk::to_cp437('.');
-                    fg = RGB::from_f32(0., 1.0, 0.);
+                    fg = RGB::from_f32(0., 0.5, 0.5);
                 }
                 TileType::Wall => {
                     glyph = rltk::to_cp437('#');
-                    fg = RGB::from_f32(0., 1.0, 0.);
+                    fg = RGB::from_f32(0., 0.7, 0.3);
                 }
             }
             if !map.visible_tiles[i] {
