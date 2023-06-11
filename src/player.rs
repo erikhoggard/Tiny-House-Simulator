@@ -1,4 +1,7 @@
-use crate::{CombatStats, Viewshed, WantsToMelee};
+use crate::{
+    gamelog::{self, GameLog},
+    CombatStats, Item, Viewshed, WantsToMelee, WantsToPickupItem,
+};
 
 use super::{Map, Player, Position, RunState, State, TileType};
 use rltk::{console, Point, Rltk, VirtualKeyCode};
@@ -46,6 +49,46 @@ pub fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
     }
 }
 
+fn get_item(ecs: &mut World) {
+    let player_pos = ecs.fetch::<Point>();
+    let player_entity = ecs.fetch::<Entity>();
+    let entities = ecs.entities();
+    let items = ecs.read_storage::<Item>();
+    let positions = ecs.read_storage::<Position>();
+    let mut gamelog = ecs.fetch_mut::<GameLog>();
+
+    let mut target_item: Option<Entity> = None;
+    for (item_entity, _item, position) in (&entities, &items, &positions).join() {
+        if position.x == player_pos.x && position.y == player_pos.y {
+            target_item = Some(item_entity);
+        }
+    }
+
+    match target_item {
+        None => gamelog
+            .entries
+            .push("There is nothing here to pick up.".to_string()),
+        Some(item) => {
+            // This line initializes a mutable reference pickup to the WriteStorage of WantsToPickupItem components.
+            let mut pickup = ecs.write_storage::<WantsToPickupItem>();
+            /*
+            This line inserts a new WantsToPickupItem component into the WriteStorage.
+            It associates the WantsToPickupItem with the player_entity (the entity representing the player character)
+            and the item being picked up.
+            */
+            pickup
+                .insert(
+                    *player_entity,
+                    WantsToPickupItem {
+                        collected_by: *player_entity,
+                        item,
+                    },
+                )
+                .expect("Unable to insert want to pickup");
+        }
+    }
+}
+
 pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
     // Player movement
     match ctx.key {
@@ -75,6 +118,11 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
             VirtualKeyCode::Numpad3 | VirtualKeyCode::N => try_move_player(1, 1, &mut gs.ecs),
 
             VirtualKeyCode::Numpad1 | VirtualKeyCode::B => try_move_player(-1, 1, &mut gs.ecs),
+
+            VirtualKeyCode::Comma | VirtualKeyCode::G => get_item(&mut gs.ecs),
+
+            VirtualKeyCode::I => return RunState::ShowInventory,
+            VirtualKeyCode::D => return RunState::ShowDropItem,
 
             _ => return RunState::AwaitingInput,
         },
