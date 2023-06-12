@@ -233,7 +233,7 @@ impl GameState for State {
 
 fn main() -> rltk::BError {
     use rltk::RltkBuilder;
-    let mut context = RltkBuilder::simple80x50()
+    let context = RltkBuilder::simple80x50()
         .with_title("Roguelike Tutorial")
         .build()?;
     let mut gs = State { ecs: World::new() };

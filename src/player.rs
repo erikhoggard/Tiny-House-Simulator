@@ -1,10 +1,10 @@
 use crate::{
-    gamelog::{self, GameLog},
+    gamelog::{GameLog},
     CombatStats, Item, Viewshed, WantsToMelee, WantsToPickupItem,
 };
 
-use super::{Map, Player, Position, RunState, State, TileType};
-use rltk::{console, Point, Rltk, VirtualKeyCode};
+use super::{Map, Player, Position, RunState, State};
+use rltk::{Point, Rltk, VirtualKeyCode};
 use specs::prelude::*;
 use std::cmp::{max, min};
 

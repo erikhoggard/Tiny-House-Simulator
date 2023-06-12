@@ -1,4 +1,4 @@
-use rltk::{Console, Rltk, VirtualKeyCode, BLACK, RGB, YELLOW};
+use rltk::{Console, Rltk, VirtualKeyCode, RGB};
 use specs::prelude::*;
 
 use crate::{InBackpack, RunState, State, Viewshed};

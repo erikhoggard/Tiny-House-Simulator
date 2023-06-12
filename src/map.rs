@@ -1,5 +1,5 @@
-use super::{Player, Rect, Viewshed};
-use rltk::{Algorithm2D, BaseMap, Point, RandomNumberGenerator, Rltk, Tile, RGB};
+use super::{Rect};
+use rltk::{Algorithm2D, BaseMap, Point, RandomNumberGenerator, Rltk, RGB};
 use serde::{Deserialize, Serialize};
 use specs::prelude::*;
 use std::cmp::{max, min};
