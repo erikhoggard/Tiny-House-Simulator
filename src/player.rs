@@ -1,6 +1,5 @@
 use crate::{
-    gamelog::{GameLog},
-    CombatStats, Item, Viewshed, WantsToMelee, WantsToPickupItem,
+    gamelog::GameLog, CombatStats, Item, TileType, Viewshed, WantsToMelee, WantsToPickupItem,
 };
 
 use super::{Map, Player, Position, RunState, State};
@@ -89,6 +88,21 @@ fn get_item(ecs: &mut World) {
     }
 }
 
+pub fn try_next_level(ecs: &mut World) -> bool {
+    let player_pos = ecs.fetch::<Point>();
+    let map = ecs.fetch::<Map>();
+    let player_idx = map.xy_idx(player_pos.x, player_pos.y);
+    if map.tiles[player_idx] == TileType::DownStairs {
+        true
+    } else {
+        let mut gamelog = ecs.fetch_mut::<GameLog>();
+        gamelog
+            .entries
+            .push("There is no way down from here.".to_string());
+        false
+    }
+}
+
 pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
     // Player movement
     match ctx.key {
@@ -97,27 +111,28 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
             VirtualKeyCode::Left | VirtualKeyCode::Numpad4 | VirtualKeyCode::H => {
                 try_move_player(-1, 0, &mut gs.ecs)
             }
-
             VirtualKeyCode::Right | VirtualKeyCode::Numpad6 | VirtualKeyCode::L => {
                 try_move_player(1, 0, &mut gs.ecs)
             }
-
             VirtualKeyCode::Up | VirtualKeyCode::Numpad8 | VirtualKeyCode::K => {
                 try_move_player(0, -1, &mut gs.ecs)
             }
-
             VirtualKeyCode::Down | VirtualKeyCode::Numpad2 | VirtualKeyCode::J => {
                 try_move_player(0, 1, &mut gs.ecs)
             }
-
             // Diagonals
             VirtualKeyCode::Numpad7 | VirtualKeyCode::Y => try_move_player(-1, -1, &mut gs.ecs),
-
             VirtualKeyCode::Numpad9 | VirtualKeyCode::U => try_move_player(1, -1, &mut gs.ecs),
-
             VirtualKeyCode::Numpad3 | VirtualKeyCode::N => try_move_player(1, 1, &mut gs.ecs),
-
             VirtualKeyCode::Numpad1 | VirtualKeyCode::B => try_move_player(-1, 1, &mut gs.ecs),
+
+            VirtualKeyCode::Period => {
+                if ctx.shift {
+                    if try_next_level(&mut gs.ecs) {
+                        return RunState::NextLevel;
+                    }
+                }
+            }
 
             VirtualKeyCode::Comma | VirtualKeyCode::G => get_item(&mut gs.ecs),
 

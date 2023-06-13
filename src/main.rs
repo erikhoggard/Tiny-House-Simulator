@@ -44,6 +44,7 @@ pub enum RunState {
         menu_selection: gui::MainMenuSelection,
     },
     SaveGame,
+    NextLevel,
 }
 
 pub struct State {
@@ -70,6 +71,102 @@ impl State {
         drop_items.run_now(&self.ecs);
 
         self.ecs.maintain();
+    }
+}
+
+impl State {
+    fn entities_to_remove_on_level_change(&mut self) -> Vec<Entity> {
+        let entities = self.ecs.entities();
+        let player = self.ecs.read_storage::<Player>();
+        let backpack = self.ecs.read_storage::<InBackpack>();
+        let player_entity = self.ecs.fetch::<Entity>();
+
+        let mut to_delete: Vec<Entity> = Vec::new();
+        for entity in entities.join() {
+            let mut should_delete = true;
+
+            // Don't delete the player
+            let p = player.get(entity);
+            if let Some(_p) = p {
+                should_delete = false;
+            }
+
+            // Don't delete the player's equipment
+            let bp = backpack.get(entity);
+            if let Some(bp) = bp {
+                if bp.owner == *player_entity {
+                    should_delete = false;
+                }
+            }
+
+            if should_delete {
+                to_delete.push(entity);
+            }
+        }
+
+        to_delete
+    }
+
+    fn goto_next_level(&mut self) {
+        let to_delete = self.entities_to_remove_on_level_change();
+        for target in to_delete {
+            self.ecs
+                .delete_entity(target)
+                .expect("Unable to delete entity");
+        }
+
+        // Build a new map and place the player
+        let worldmap;
+
+        {
+            // get a mutable reference to the Map resource
+            let mut worldmap_resource = self.ecs.write_resource::<Map>();
+            let current_depth = worldmap_resource.depth;
+            // replace the map resource with a new one
+            *worldmap_resource = Map::new_map_rooms_and_corridors(current_depth + 1);
+            // clone the resource to a variable used outside the scope
+            worldmap = worldmap_resource.clone();
+            // end the scope to drop the mutable reference
+        }
+
+        // spawn enemies
+        for room in worldmap.rooms.iter().skip(1) {
+            spawner::spawn_room(&mut self.ecs, room);
+        }
+
+        // create a new pos for the player on the new map
+        let (player_x, player_y) = worldmap.rooms[0].center();
+        let mut player_position = self.ecs.write_resource::<Point>();
+        *player_position = Point::new(player_x, player_y);
+        // get all position components
+        let mut position_components = self.ecs.write_storage::<Position>();
+        // get the player's entity
+        let player_entity = self.ecs.fetch::<Entity>();
+        // get the position component for player_entity
+        let player_pos_comp = position_components.get_mut(*player_entity);
+        // if player_entity has a position component, update it
+        if let Some(player_pos_comp) = player_pos_comp {
+            player_pos_comp.x = player_x;
+            player_pos_comp.y = player_y;
+        }
+
+        // mark the player's visibility as dirty
+        let mut viewshed_components = self.ecs.write_storage::<Viewshed>();
+        let player_vs = viewshed_components.get_mut(*player_entity);
+        if let Some(vs) = player_vs {
+            vs.dirty = true;
+        }
+
+        // notify the player and give them some health
+        let mut gamelog = self.ecs.fetch_mut::<gamelog::GameLog>();
+        gamelog
+            .entries
+            .push("You descend to the next level, and heal a LITTLE BIT.".to_string());
+        let mut combat_stats = self.ecs.write_storage::<CombatStats>();
+        let player_stats = combat_stats.get_mut(*player_entity);
+        if let Some(stats) = player_stats {
+            stats.hp = i32::max(stats.hp, stats.max_hp / 2);
+        }
     }
 }
 
@@ -221,6 +318,10 @@ impl GameState for State {
                     menu_selection: gui::MainMenuSelection::Quit,
                 };
             }
+            RunState::NextLevel => {
+                self.goto_next_level();
+                newrunstate = RunState::PreRun;
+            }
         }
 
         {
@@ -263,7 +364,7 @@ fn main() -> rltk::BError {
 
     gs.ecs.insert(SimpleMarkerAllocator::<SerializeMe>::new());
 
-    let map: Map = Map::new_map_rooms_and_corridors();
+    let map: Map = Map::new_map_rooms_and_corridors(1);
     let (player_x, player_y) = map.rooms[0].center();
 
     let player_entity = spawner::player(&mut gs.ecs, player_x, player_y);
@@ -275,6 +376,8 @@ fn main() -> rltk::BError {
 
     gs.ecs.insert(map);
     gs.ecs.insert(Point::new(player_x, player_y));
+    // Now we create a single, separate resource that will track the player. This makes it easier for
+    // us to always know where the player is
     gs.ecs.insert(player_entity);
     gs.ecs.insert(RunState::MainMenu {
         menu_selection: gui::MainMenuSelection::NewGame,
